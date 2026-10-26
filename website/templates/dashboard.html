@@ -330,7 +330,7 @@
         if (bucket.grams > 0) {
           const top = y(bucket.grams);
           const h = pad.top + plotH - top;
-          const r = Math.min(4, h, barW / 2);
+          const r = Math.min(2, h, barW / 2);
           const x0 = cx - barW / 2, x1 = cx + barW / 2, base = pad.top + plotH;
           // Rounded top, square at the baseline
           svg.appendChild(el('path', {
