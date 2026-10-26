@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set status_tones = {'idle': 'ok', 'feeding': 'gold', 'calibrating': 'gold', 'offline': 'bad'} %}
+{% set status_labels = {'idle': _('Idle'), 'feeding': _('Feeding'), 'calibrating': _('Calibrating'), 'offline': _('Offline')} %}
+
+<div class="mb-6">
+  <h1 class="text-2xl font-bold tracking-tight text-primaryText">{{ _('Dashboard') }}</h1>
+  <p class="mt-1 text-sm text-secondaryText">{{ _('Live overview of the feeding station.') }}</p>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="relative overflow-hidden rounded-r-md rounded-l bg-hoverLightBG pl-6 pr-5 py-4">
+    <span id="statusColourBar" aria-hidden="true" class="absolute inset-y-0 left-0 w-1 rounded-full bg-{{ status_tones[system_status] }}"></span>
+    <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('System Status') }}</p>
+    <p id="statusLabel" class="mt-2 text-2xl font-semibold text-primaryText">{{ status_labels[system_status] }}</p>
+  </div>
+
+  <div class="relative overflow-hidden rounded-r-md rounded-l bg-hoverLightBG pl-6 pr-5 py-4">
+    <span aria-hidden="true" class="absolute inset-y-0 left-0 w-1 rounded-full bg-secondaryText"></span>
+    <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Animals Registered') }}</p>
+    <p class="mt-2 text-2xl font-semibold text-primaryText">{{ animal_count | default(0) }}</p>
+  </div>
+
+  <div class="relative overflow-hidden rounded-r-md rounded-l bg-hoverLightBG pl-6 pr-5 py-4">
+    <span aria-hidden="true" class="absolute inset-y-0 left-0 w-1 rounded-full bg-secondaryText"></span>
+    <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Current time') }}</p>
+    <p id="currTime" class="mt-2 text-2xl font-semibold text-primaryText">{{ curr_time.strftime("%Y/%m/%d %H:%M:%S") | default("Unknown") }}</p>
+  </div>
+
+  <div class="relative overflow-hidden rounded-r-md rounded-l bg-hoverLightBG pl-6 pr-5 py-4 flex flex-col">
+    <span aria-hidden="true" class="absolute inset-y-0 left-0 w-1 rounded-full bg-secondaryText"></span>
+    <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Last Event') }}</p>
+    <p id="lastEventMessage" class="flex-1 flex items-center text-sm font-medium text-primaryText">{{ last_event.message | default(_('No events yet')) }}</p>
+  </div>
+
+  <div class="relative overflow-hidden rounded-r-md rounded-l bg-hoverLightBG pl-6 pr-5 py-4 flex flex-col">
+    <span aria-hidden="true" class="absolute inset-y-0 left-0 w-1 rounded-full bg-secondaryText"></span>
+    <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Device IP') }}</p>
+    <p id="deviceIP" class="flex-1 flex items-center text-sm font-medium text-primaryText">{{_('Offline')}}</p>
+  </div>
+
+  <div class="relative overflow-hidden rounded-r-md rounded-l bg-hoverLightBG pl-6 pr-5 py-4 flex flex-col">
+    <span aria-hidden="true" class="absolute inset-y-0 left-0 w-1 rounded-full bg-secondaryText"></span>
+    <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Device RSSI') }}</p>
+    <p id="deviceRSSI" class="flex-1 flex items-center text-sm font-medium text-primaryText">—</p>
+  </div>
+
+  <div class="relative overflow-hidden rounded-r-md rounded-l bg-hoverLightBG pl-6 pr-5 py-4 flex flex-col">
+    <span aria-hidden="true" class="absolute inset-y-0 left-0 w-1 rounded-full bg-secondaryText"></span>
+    <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Device uptime') }}</p>
+    <p id="deviceUPTIME" class="flex-1 flex items-center text-sm font-medium text-primaryText">—</p>
+  </div>
+</div>
+
+<div class="mt-8 flex flex-wrap gap-3">
+  <a href="/animals" class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition">{{ _('View Animals') }}</a>
+  <a href="/calibration" class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition">{{ _('Calibration') }}</a>
+  <a href="/logs" class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition">{{ _('View Logs') }}</a>
+</div>
+
+<script>
+  (function () {
+    const statusColourBar = document.getElementById('statusColourBar');
+    const statusLabel = document.getElementById('statusLabel');
+    const statusLabels = {{ status_labels | tojson }};
+    const statusTones = {{ status_tones | tojson }};
+
+    const lastEventMessage = document.getElementById('lastEventMessage');
+    let lastSeenId = "{{ last_event.id | default('null', true) }}";
+
+    const currTime = document.getElementById('currTime');
+    const deviceIP = document.getElementById('deviceIP');
+    const deviceRSSI = document.getElementById('deviceRSSI');
+    const deviceUPTIME = document.getElementById('deviceUPTIME');
+    
+    function pollStatus() {
+      fetch('/api/status')
+        .then(function (res) { return res.json(); })
+        .then(function (d) {
+          statusLabel.textContent = statusLabels[d.status] || d.status;
+          statusColourBar.className = 'absolute inset-y-0 left-0 w-1 rounded-full bg-' + statusTones[d.status];
+        })
+        .catch(function () {});
+    }
+
+    function pollLogs() {
+      fetch('/api/logs/latest')
+        .then(function (res) { return res.json(); })
+        .then(function (log) {
+          if (!log || log.id === lastSeenId) return;
+          lastSeenId = log.id;
+          lastEventMessage.textContent = log.message || log.event_type;
+        })
+        .catch(function () {});
+    }
+
+    function formatUptime(ms) {
+      const s = Math.floor(ms / 1000);
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+      return h + 'h ' + m + 'm ' + (s % 60) + 's';
+    }
+    
+    function pollDevice() {
+      fetch('/api/device/info')
+        .then(function (res) { return res.json(); })
+        .then(function (d) {
+          deviceIP.textContent = d.online ? d.ip : 'Offline';
+          deviceRSSI.textContent = d.online && d.rssi != null ? d.rssi + ' dBm' : '—';
+          deviceUPTIME.textContent = d.online && d.up_time != null ? formatUptime(d.up_time) : '—';
+        })
+        .catch(function () {});
+    }
+
+    pollDevice();
+    setInterval(pollStatus, 2000);
+    setInterval(pollLogs, 2000);
+    setInterval(pollDevice, 2000);
+  })();
+</script>
+{% endblock %}

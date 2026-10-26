@@ -1,0 +1,109 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-2xl font-bold tracking-tight text-primaryText">{{ _('Logs') }}</h1>
+  <p class="mt-1 text-sm text-secondaryText">{{ _('Stay updated on your feeding station.') }}</p>
+</div>
+
+<div class="mb-3 flex flex-wrap gap-3">
+  <a href="/animals" class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition">{{ _('View Animals') }}</a>
+  <a href="/calibration" class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition">{{ _('Calibration') }}</a>
+  <a href="/logs" class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition">{{ _('View Logs') }}</a>
+</div>
+
+{% set event_tone = {'feeding': 'secondaryText', 'feeding_rejected': 'bad', 'calibration': 'gold', 'animal_updated': 'secondaryText', 'unknown_tag': 'bad'} %}
+{% set event_label = {'feeding': _('Feeding'), 'feeding_rejected': _('Rejected'), 'calibration': _('Calibration'), 'animal_updated': _('Animal updated'), 'unknown_tag': _('Unknown tag')} %}
+<div id="logsTable" class="overflow-x-auto {% if not logs %}hidden{% endif %}">
+  <table class="w-full min-w-[720px] border-separate border-spacing-0">
+    <thead>
+      <tr>
+        <th class="bg-darkBG px-5 py-3 text-left text-sm font-bold text-secondaryText rounded-l-lg">{{ _('Timestamp') }}</th>
+        <th class="bg-darkBG px-5 py-3 text-left text-sm font-bold text-secondaryText">{{ _('Event') }}</th>
+        <th class="bg-darkBG px-5 py-3 text-left text-sm font-bold text-secondaryText rounded-r-lg">{{ _('Message') }}</th>
+      </tr>
+    </thead>
+    <tbody id="logsBody" class="[&>tr:first-child>td]:border-t-0">
+      {% for log in logs %}
+      {% set tone = event_tone.get(log.event_type, 'secondaryText') %}
+      {% set unknown_tag = log.message.split(': ')[-1] if log.event_type == 'unknown_tag' and log.message else None %}
+      {% if unknown_tag %}
+      <tr
+        data-log-id="{{ log.id }}"
+        data-unknown-tag-row
+        data-href="{{ url_for('views.animals', add_rfid=unknown_tag) }}"
+        tabindex="0"
+        role="link"
+        aria-label="{{ _('Add animal with RFID tag') }} {{ unknown_tag }}"
+        title="{{ _('Add an animal with this tag') }}"
+        class="cursor-pointer transition hover:bg-hoverDarkBG focus:outline-none focus-visible:ring-2 focus-visible:ring-secondaryText/40"
+      >
+      {% else %}
+      <tr data-log-id="{{ log.id }}">
+      {% endif %}
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText whitespace-nowrap border-t border-white/70">
+          {{ log.timestamp.strftime('%Y/%m/%d %H:%M:%S') }}
+        </td>
+        <td class="px-5 py-4 text-sm font-bold text-{{ tone }} border-t border-white/70">
+            {{ event_label.get(log.event_type, log.event_type) }}
+        </td>
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText border-t border-white/70">
+          {{ log.message or '-' }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p id="logsEmpty" class="text-sm text-secondaryText {% if logs %}hidden{% endif %}">{{ _('No logs yet.') }}</p>
+
+<script>
+  (function () {
+    const table = document.getElementById('logsTable');
+    const body = document.getElementById('logsBody');
+    const empty = document.getElementById('logsEmpty');
+
+    function newestId() {
+      let max = 0;
+      body.querySelectorAll('[data-log-id]').forEach(function (row) {
+        max = Math.max(max, parseInt(row.dataset.logId, 10));
+      });
+      return max;
+    }
+
+    // "Unknown tag" rows open the add-animal dialog with the scanned tag prefilled.
+    // Listening on the table body also covers rows added by polling.
+    function openRow(e) {
+      const row = e.target.closest('[data-unknown-tag-row]');
+      if (row) window.location.href = row.dataset.href;
+    }
+    body.addEventListener('click', openRow);
+    body.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        if (e.target.closest('[data-unknown-tag-row]')) e.preventDefault();
+        openRow(e);
+      }
+    });
+
+    // Ask this same page for rows newer than the newest one shown, and put
+    // them on top. The server renders them, so they match the existing rows.
+    function poll() {
+      fetch('/logs?after=' + newestId())
+        .then(function (res) { return res.text(); })
+        .then(function (html) {
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const rows = doc.querySelectorAll('#logsBody > tr[data-log-id]');
+          if (!rows.length) return;
+          const fragment = document.createDocumentFragment();
+          rows.forEach(function (row) { fragment.appendChild(document.importNode(row, true)); });
+          body.insertBefore(fragment, body.firstElementChild);
+          table.classList.remove('hidden');
+          empty.classList.add('hidden');
+        })
+        .catch(function () {});
+    }
+
+    setInterval(poll, 2000);
+  })();
+</script>
+{% endblock %}

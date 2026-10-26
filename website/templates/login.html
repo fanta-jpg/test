@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_language_switch.html" import language_switch with context %}
+
+{% block title %}{{ _('Sign in') }}{% endblock %}
+
+{% block layout %}
+<main class="min-h-screen flex flex-col items-center justify-center px-4 py-10">
+  <div class="w-full max-w-sm">
+
+    
+
+    <div class="rounded-xl bg-hoverLightBG border border-buttonBorder px-6 py-6 shadow-2xl">
+
+      <div class="mb-6 flex items-center justify-center gap-2">
+        <img src="{{ url_for('static', filename='wheat.svg') }}" alt="" class="h-8 w-8">
+        <span class="text-lg font-bold tracking-tight text-primaryText">FARMGAARD</span>
+      </div>
+      
+      <h1 class="text-2xl font-bold tracking-tight text-primaryText">{{ _('Sign in') }}</h1>
+      <p class="mt-1 text-sm text-secondaryText">{{ _('Log in to manage your feeder.') }}</p>
+
+      <form method="post" action="{{ url_for('auth.login') }}" class="mt-5" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <label for="username" class="block text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Username') }}</label>
+        <input
+          id="username"
+          name="username"
+          type="text"
+          value="{{ username }}"
+          autocomplete="username"
+          autocapitalize="none"
+          spellcheck="false"
+          required
+          {% if not username %}autofocus{% endif %}
+          class="mt-1 w-full rounded-lg border border-buttonBorder bg-darkBG px-3 py-2.5 text-sm text-primaryText placeholder:text-secondaryText/60 focus:outline-none focus:ring-2 focus:ring-secondaryText/40"
+        >
+
+        <label for="password" class="mt-4 block text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Password') }}</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          required
+          {% if username %}autofocus{% endif %}
+          class="mt-1 w-full rounded-lg border border-buttonBorder bg-darkBG px-3 py-2.5 text-sm text-primaryText placeholder:text-secondaryText/60 focus:outline-none focus:ring-2 focus:ring-secondaryText/40"
+        >
+
+        {% if error %}
+        <p role="alert" class="mt-2 text-sm font-medium text-bad">{{ error }}</p>
+        {% endif %}
+
+        <button
+          type="submit"
+          class="mt-6 w-full rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-darkBG hover:bg-hoverDarkBG transition focus:outline-none focus-visible:ring-2 focus-visible:ring-secondaryText/40"
+        >
+          {{ _('Sign in') }}
+        </button>
+      </form>
+    </div>
+
+    <div class="mt-6 flex flex-col items-center gap-3">
+      {{ language_switch() }}
+      <p class="text-center text-xs text-secondaryText">{{ _('Accounts are created by the station administrator.') }}</p>
+    </div>
+  </div>
+</main>
+{% endblock %}

@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-2xl font-bold tracking-tight text-primaryText">{{ _('Animals') }}</h1>
+  <p class="mt-1 text-sm text-secondaryText">{{ _('Manage registered animals and their feeding rules.') }}</p>
+</div>
+
+<div class="mb-3 flex flex-wrap gap-3">
+  <button id="addAnimalBtn" type="button" class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition">{{ _('Add animal') }}</button>
+  <a href="/calibration" class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition">{{ _('Calibration') }}</a>
+  <a href="/logs" class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition">{{ _('View Logs') }}</a>
+</div>
+
+{% if animals %}
+<div class="overflow-x-auto">
+  <table class="w-full min-w-[720px] border-separate border-spacing-0">
+    <thead>
+      <tr>
+        <th class="bg-darkBG px-5 py-3 text-left text-sm font-bold text-secondaryText rounded-l-lg">{{ _('Animal') }}</th>
+        <th class="bg-darkBG px-5 py-3 text-left text-sm font-bold text-secondaryText">RFID</th>
+        <th class="bg-darkBG px-5 py-3 text-left text-sm font-bold text-secondaryText whitespace-nowrap">{{ _('Feed (g)') }}</th>
+        <th class="bg-darkBG px-5 py-3 text-center text-sm font-bold text-secondaryText">{{ _('Feedings') }}</th>
+        <th class="bg-darkBG px-5 py-3 text-center text-sm font-bold text-secondaryText">{{ _('Feedings today') }}</th>
+        <th class="bg-darkBG px-5 py-3 text-center text-sm font-bold text-secondaryText">{{ _('Minimum interval') }}</th>
+        <th class="bg-darkBG px-5 py-3 text-left text-sm font-bold text-secondaryText rounded-r-lg">{{ _('Start - End') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for animal in animals %}
+      <tr
+        data-animal-row
+        tabindex="0"
+        role="button"
+        aria-label="{{ _('Edit animal') }} {{ animal.animal_number }}"
+        data-id="{{ animal.id }}"
+        data-animal_number="{{ animal.animal_number }}"
+        data-rfid_tag="{{ animal.rfid_tag }}"
+        data-feed_amount="{{ animal.feed_amount }}"
+        data-max_feedings_per_day="{{ animal.max_feedings_per_day }}"
+        data-min_interval="{{ '%02d:%02d' | format(animal.min_minutes_between_feedings // 60, animal.min_minutes_between_feedings % 60) }}"
+        data-feeding_interval_start="{{ animal.feeding_interval_start.strftime('%H:%M') }}"
+        data-feeding_interval_end="{{ animal.feeding_interval_end.strftime('%H:%M') }}"
+        class="cursor-pointer transition hover:bg-hoverDarkBG focus:outline-none focus-visible:ring-2 focus-visible:ring-secondaryText/40"
+      >
+
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-left whitespace-nowrap {% if not loop.first %}border-t border-white/70{% endif %}">
+          {{ animal.animal_number }}
+        </td>
+        <td class="px-5 py-4 text-sm font-bold text-left whitespace-nowrap {% if not loop.first %}border-t border-white/70{% endif %}">
+          {{ animal.rfid_tag }}
+        </td>
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-left whitespace-nowrap {% if not loop.first %}border-t border-white/70{% endif %}">
+          {{ animal.feed_amount }}
+        </td>
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-center whitespace-nowrap {% if not loop.first %}border-t border-white/70{% endif %}">
+          {{ animal.max_feedings_per_day}}
+        </td>
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-center {% if not loop.first %}border-t border-white/70{% endif %}">
+          {{ animal.feedings_today }}
+        </td>
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-center whitespace-nowrap {% if not loop.first %}border-t border-white/70{% endif %}">
+          {{ '%02d:%02d' | format(animal.min_minutes_between_feedings // 60, animal.min_minutes_between_feedings % 60) }}
+        </td>
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-left whitespace-nowrap {% if not loop.first %}border-t border-white/70{% endif %}">
+          {{ animal.feeding_interval_start.strftime('%H:%M') + " - " + animal.feeding_interval_end.strftime('%H:%M') }}
+        </td>
+
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-sm text-secondaryText">{{ _('No animals added yet.') }}</p>
+{% endif %}
+
+<!-- Add animal dialog -->
+<div id="animalPopUp" class="fixed inset-0 z-50 hidden">
+  <div data-backdrop class="absolute inset-0 bg-darkBG/80"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div
+      data-panel
+      data-open="false"
+      role="dialog"
+      aria-animalPopUp="true"
+      aria-labelledby="animal_PopUp_Title"
+      class="animal-panel w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-buttonBorder bg-hoverLightBG p-6 shadow-2xl"
+    >
+      <h2 id="animal_PopUp_Title" class="text-lg font-bold tracking-tight text-primaryText">{{ _('Add animal') }}</h2>
+      <p id="animal_PopUp_Description" class="mt-1 text-sm text-secondaryText">{{ _('Register an animal and the rules the feeder uses for it.') }}</p>
+
+      <form id="addAnimaladdAnimalForm" class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4" novalidate>
+        <div class="sm:col-span-2">
+          <label for="animalNumber" class="block text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Animal number') }}</label>
+          <input
+            id="animalNumber"
+            name="animal_number"
+            type="text"
+            autocomplete="off"
+            placeholder="{{ _('e.g. A001') }}"
+            class="mt-1 w-full rounded-lg border border-buttonBorder bg-darkBG px-3 py-2.5 text-sm text-primaryText placeholder:text-secondaryText/60 focus:outline-none focus:ring-2 focus:ring-secondaryText/40"
+          >
+        </div>
+
+        <div class="sm:col-span-2">
+          <label for="rfidTag" class="block text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('RFID tag') }} <span class="normal-case">({{ _('10 digits') }})</span></label>
+          <input
+            id="rfidTag"
+            name="rfid_tag"
+            type="text"
+            inputmode="numeric"
+            maxlength="10"
+            autocomplete="off"
+            placeholder="0000000000"
+            class="mt-1 w-full rounded-lg border border-buttonBorder bg-darkBG px-3 py-2.5 text-sm text-primaryText placeholder:text-secondaryText/60 focus:outline-none focus:ring-2 focus:ring-secondaryText/40"
+          >
+        </div>
+
+        <div>
+          <label for="feedAmount" class="block text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Feed per feeding (g)') }}</label>
+          <input
+            id="feedAmount"
+            name="feed_amount"
+            type="number"
+            min="0"
+            step="0.1"
+            inputmode="decimal"
+            placeholder="0.0"
+            class="mt-1 w-full rounded-lg border border-buttonBorder bg-darkBG px-3 py-2.5 text-sm text-primaryText placeholder:text-secondaryText/60 focus:outline-none focus:ring-2 focus:ring-secondaryText/40"
+          >
+        </div>
+
+        <div>
+          <label for="maxFeedings" class="block text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Max feedings / day') }}</label>
+          <input
+            id="maxFeedings"
+            name="max_feedings_per_day"
+            type="number"
+            min="1"
+            step="1"
+            inputmode="numeric"
+            placeholder="1"
+            class="mt-1 w-full rounded-lg border border-buttonBorder bg-darkBG px-3 py-2.5 text-sm text-primaryText placeholder:text-secondaryText/60 focus:outline-none focus:ring-2 focus:ring-secondaryText/40"
+          >
+        </div>
+
+        <div>
+          <label for="feedingTimeStart" class="block text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Feeding window start') }}</label>
+          <input
+            id="feedingTimeStart"
+            name="feeding_interval_start"
+            type="time"
+            class="mt-1 w-full rounded-lg border border-buttonBorder bg-darkBG px-3 py-2.5 text-sm text-primaryText focus:outline-none focus:ring-2 focus:ring-secondaryText/40"
+          >
+        </div>
+
+        <div>
+          <label for="feedingTimeEnd" class="block text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Feeding window end') }}</label>
+          <input
+            id="feedingTimeEnd"
+            name="feeding_interval_end"
+            type="time"
+            class="mt-1 w-full rounded-lg border border-buttonBorder bg-darkBG px-3 py-2.5 text-sm text-primaryText focus:outline-none focus:ring-2 focus:ring-secondaryText/40 scheme-dark"
+          >
+        </div>
+
+        <div>
+          <label for="minInterval" class="block text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Min. time between feedings (hh:mm)') }}</label>
+          <input
+            id="minInterval"
+            name="min_interval"
+            type="time"
+            class="mt-1 w-full rounded-lg border border-buttonBorder bg-darkBG px-3 py-2.5 text-sm text-primaryText focus:outline-none focus:ring-2 focus:ring-secondaryText/40 scheme-dark"
+          >
+        </div>
+
+        <p id="addAnimalError" class="hidden sm:col-span-2 text-sm font-medium text-bad"></p>
+
+        <div class="sm:col-span-2 mt-1 flex items-center justify-between gap-3">
+          <button
+            id="deleteAnimalBtn"
+            type="button"
+            class="hidden rounded-lg border border-bad/60 px-4 py-2.5 text-sm font-semibold text-bad hover:bg-bad/10 transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {{ _('Delete') }}
+          </button>
+          <div class="flex flex-1 justify-end gap-3">
+            <button
+              id="submitAnimalBtn"
+              type="submit"
+              class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {{ _('Add animal') }}
+            </button>
+            <button
+              id="cancelAnimalBtn"
+              type="button"
+              class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition"
+            >
+              {{ _('Cancel') }}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+  .animal-panel {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    transition: opacity 0.15s ease, transaddAnimalForm 0.15s ease;
+  }
+  .animal-panel[data-open="true"] {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animal-panel { transition: none; }
+  }
+</style>
+
+<script>
+  (function () {
+    const openBtn = document.getElementById('addAnimalBtn');
+    const animalPopUp = document.getElementById('animalPopUp');
+    const panel = animalPopUp.querySelector('[data-panel]');
+    const backdrop = animalPopUp.querySelector('[data-backdrop]');
+    const addAnimalForm = document.getElementById('addAnimaladdAnimalForm');
+    const addAnimalError = document.getElementById('addAnimalError');
+    const submitBtn = document.getElementById('submitAnimalBtn');
+    const cancelBtn = document.getElementById('cancelAnimalBtn');
+    const deleteBtn = document.getElementById('deleteAnimalBtn');
+    const rfidInput = document.getElementById('rfidTag');
+    const firstField = document.getElementById('animalNumber');
+    const popUpTitle = document.getElementById('animal_PopUp_Title');
+    const popUpDescription = document.getElementById('animal_PopUp_Description');
+    const rows = document.querySelectorAll('[data-animal-row]');
+
+    let lastFocused = null;
+    let editingAnimalId = null;
+
+    function showError(message) {
+      addAnimalError.textContent = message;
+      addAnimalError.classList.remove('hidden');
+    }
+
+    function clearError() {
+      addAnimalError.textContent = '';
+      addAnimalError.classList.add('hidden');
+    }
+
+    function openAddPopUp() {
+      editingAnimalId = null;
+      lastFocused = document.activeElement;
+      addAnimalForm.reset();
+      clearError();
+      popUpTitle.textContent = {{ _('Add animal')|tojson }};
+      popUpDescription.textContent = {{ _('Register an animal and the rules the feeder uses for it.')|tojson }};
+      submitBtn.textContent = {{ _('Add animal')|tojson }};
+      deleteBtn.classList.add('hidden');
+      animalPopUp.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      requestAnimationFrame(function () {
+        panel.dataset.open = 'true';
+        firstField.focus();
+      });
+    }
+
+    function openEditPopUp(row) {
+      editingAnimalId = row.dataset.id;
+      lastFocused = document.activeElement;
+      addAnimalForm.reset();
+      clearError();
+      addAnimalForm.animal_number.value = row.dataset.animal_number;
+      addAnimalForm.rfid_tag.value = row.dataset.rfid_tag;
+      addAnimalForm.feed_amount.value = row.dataset.feed_amount;
+      addAnimalForm.max_feedings_per_day.value = row.dataset.max_feedings_per_day;
+      addAnimalForm.min_interval.value = row.dataset.min_interval;
+      addAnimalForm.feeding_interval_start.value = row.dataset.feeding_interval_start;
+      addAnimalForm.feeding_interval_end.value = row.dataset.feeding_interval_end;
+      popUpTitle.textContent = {{ _('Edit animal')|tojson }} + ' ' + row.dataset.animal_number;
+      popUpDescription.textContent = {{ _('Update this animal’s details or remove it from the system.')|tojson }};
+      submitBtn.textContent = {{ _('Save changes')|tojson }};
+      deleteBtn.classList.remove('hidden');
+      animalPopUp.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      requestAnimationFrame(function () {
+        panel.dataset.open = 'true';
+        firstField.focus();
+      });
+    }
+
+    function closeanimalPopUp() {
+      panel.dataset.open = 'false';
+      animalPopUp.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+      if (lastFocused) lastFocused.focus();
+    }
+
+    openBtn.addEventListener('click', openAddPopUp);
+    cancelBtn.addEventListener('click', closeanimalPopUp);
+    backdrop.addEventListener('click', closeanimalPopUp);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !animalPopUp.classList.contains('hidden')) closeanimalPopUp();
+    });
+
+    rows.forEach(function (row) {
+      row.addEventListener('click', function () {
+        openEditPopUp(row);
+      });
+      row.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openEditPopUp(row);
+        }
+      });
+    });
+
+    // Opened from an "Unknown tag" log entry: start the add dialog with the
+    // scanned tag already filled in, then drop the param so a reload after
+    // saving doesn't reopen it.
+    const params = new URLSearchParams(window.location.search);
+    const prefillRfid = (params.get('add_rfid') || '').replace(/\D/g, '').slice(0, 10);
+    if (prefillRfid) {
+      openAddPopUp();
+      rfidInput.value = prefillRfid;
+      params.delete('add_rfid');
+      const query = params.toString();
+      history.replaceState(null, '', window.location.pathname + (query ? '?' + query : ''));
+    }
+
+    rfidInput.addEventListener('input', function (e) {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 15);
+    });
+
+    function hhmmToMinutes(value) {
+      const match = /^(\d{1,2}):(\d{2})$/.exec(value || '');
+      if (!match) return null;
+      const hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      if (minutes > 59) return null;
+      return hours * 60 + minutes;
+    }
+
+    addAnimalForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      clearError();
+
+      const minIntervalMinutes = addAnimalForm.min_interval.value ? hhmmToMinutes(addAnimalForm.min_interval.value) : 0;
+
+      const data = {
+        animal_number: addAnimalForm.animal_number.value.trim(),
+        rfid_tag: addAnimalForm.rfid_tag.value.trim(),
+        feed_amount: addAnimalForm.feed_amount.value,
+        max_feedings_per_day: addAnimalForm.max_feedings_per_day.value,
+        min_minutes_between_feedings: minIntervalMinutes,
+        feeding_interval_start: addAnimalForm.feeding_interval_start.value,
+        feeding_interval_end: addAnimalForm.feeding_interval_end.value,
+      };
+
+      if (!data.animal_number) return showError({{ _('Enter an animal number.')|tojson }});
+      if (!/^\d{10}$/.test(data.rfid_tag)) return showError({{ _('The RFID tag must be exactly 10 digits.')|tojson }});
+      if (!(parseFloat(data.feed_amount) > 0)) return showError({{ _('Enter a feed amount greater than 0.')|tojson }});
+      if (!(parseInt(data.max_feedings_per_day, 10) >= 1)) return showError({{ _('Enter at least 1 feeding per day.')|tojson }});
+      if (data.min_minutes_between_feedings === null) return showError({{ _('Enter a valid min. time between feedings (hh:mm).')|tojson }});
+      if (!data.feeding_interval_start || !data.feeding_interval_end) return showError({{ _('Set the feeding window start and end.')|tojson }});
+
+      const url = editingAnimalId ? '/api/animals/' + editingAnimalId + '/update' : '/api/animals/add';
+
+      submitBtn.disabled = true;
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+        .then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) {
+            const fields = result.data && result.data.fields;
+            showError(fields ? Object.values(fields)[0] : {{ _('Couldn’t save the animal. Check the details and try again.')|tojson }});
+            return;
+          }
+          window.location.reload();
+        })
+        .catch(function () {
+          showError({{ _('Couldn’t reach the server. Try again.')|tojson }});
+        })
+        .finally(function () {
+          submitBtn.disabled = false;
+        });
+    });
+
+    deleteBtn.addEventListener('click', function () {
+      if (!editingAnimalId) return;
+      if (!window.confirm({{ _('Delete this animal? This can’t be undone.')|tojson }})) return;
+
+      clearError();
+      deleteBtn.disabled = true;
+      fetch('/api/animals/' + editingAnimalId + '/delete', { method: 'POST' })
+        .then(function (res) {
+          if (!res.ok) throw new Error('delete_failed');
+          window.location.reload();
+        })
+        .catch(function () {
+          showError({{ _('Couldn’t delete the animal. Try again.')|tojson }});
+        })
+        .finally(function () {
+          deleteBtn.disabled = false;
+        });
+    });
+  })();
+</script>
+{% endblock %}

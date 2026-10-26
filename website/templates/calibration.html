@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="mb-6">
+  <h1 class="text-2xl font-bold tracking-tight text-primaryText">{{ _('Calibration') }}</h1>
+  <p class="mt-1 text-sm text-secondaryText">{{ _('Run a test feed, weigh what comes out -- the feed rate will be updated.') }}</p>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+  <div class="relative overflow-hidden rounded-r-md rounded-l bg-hoverLightBG pl-6 pr-5 py-4">
+    <span aria-hidden="true" class="absolute inset-y-0 left-0 w-1 rounded-full bg-secondaryText"></span>
+    <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Feed Rate') }} <span class="normal-case">(g/s)</span></p>
+    <p id="currentFeedRate" class="mt-2 text-2xl font-semibold text-primaryText">{{ feed_rate | default(_('Not set'), true) }}</p>
+  </div>
+
+  <div id="lastCalibrationTime" class="relative overflow-hidden rounded-r-md rounded-l bg-hoverLightBG pl-6 pr-5 py-4">
+    <span aria-hidden="true" class="absolute inset-y-0 left-0 w-1 rounded-full bg-secondaryText"></span>
+    <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Last Calibration') }}</p>
+    <p id="lastCalibrationTimeValue" class="mt-2 text-2xl font-semibold text-primaryText">{{ last_calibration | default(_('Never'), true) }}</p>
+  </div>
+
+</div>
+
+<div class="mt-8 flex flex-wrap items-center gap-3">
+  <button
+    id="runCalibrationBtn"
+    type="button"
+    class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition disabled:opacity-60 disabled:cursor-not-allowed"
+  >
+    {{ _('Run calibration') }}
+  </button>
+  <p id="calibrationHint" class="hidden text-sm font-medium text-primaryText"></p>
+</div>
+
+<!-- Calibration dialog -->
+<div id="calibrationPopUp" class="fixed inset-0 z-50 hidden">
+  <div data-backdrop class="absolute inset-0 bg-darkBG/80"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div
+      data-panel
+      data-open="false"
+      role="dialog"
+      aria-calibrationPopUp="true"
+      aria-labelledby="calibration_PopUp_Title"
+      class="cal-panel w-full max-w-md rounded-xl border border-buttonBorder bg-hoverLightBG p-6 shadow-2xl"
+    >
+
+      <!-- Step 1: enter the dispensed weight -->
+      <div id="enterWeightPage">
+        <h2 id="calibration_PopUp_Title" class="text-lg font-bold tracking-tight text-primaryText">{{ _('Enter dispensed weight') }}</h2>
+        <p class="mt-1 text-sm text-secondaryText">
+          {{ _('The feeder ran for') }} <span id="runSecondsText" class="font-semibold text-primaryText">—</span> {{ _('seconds.') }}
+          {{ _('Weigh the feed it dispensed and enter the amount below.') }}
+        </p>
+
+        <label for="dispensedWeight" class="mt-5 block text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Dispensed weight (g)') }}</label>
+        <input
+          id="dispensedWeight"
+          type="number"
+          min="0"
+          step="0.1"
+          inputmode="decimal"
+          placeholder="0.0"
+          class="mt-1 w-full rounded-lg border border-buttonBorder bg-darkBG px-3 py-2.5 text-sm text-primaryText placeholder:text-secondaryText/60 focus:outline-none focus:ring-2 focus:ring-secondaryText/40"
+        >
+        <p id="weightError" class="hidden mt-2 text-sm font-medium text-bad"></p>
+
+        <div class="mt-6 flex justify-end gap-3">
+          <button
+            id="cancelCalibrationBtn"
+            type="button"
+            class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition"
+          >
+            {{ _('Cancel') }}
+          </button>
+          <button
+            id="submitWeightBtn"
+            type="button"
+            class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {{ _('Calculate feed rate') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: result -->
+      <div id="showResultPage" class="hidden">
+        <h2 class="text-lg font-bold tracking-tight text-primaryText">{{ _('Calibration saved') }}</h2>
+        <p class="mt-1 text-sm text-secondaryText">{{ _('The feeder will use this rate for future feedings.') }}</p>
+
+        <div class="mt-5 relative overflow-hidden rounded-r-md rounded-l bg-darkBG pl-6 pr-5 py-4">
+          <span aria-hidden="true" class="absolute inset-y-0 left-0 w-1 rounded-full bg-ok"></span>
+          <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('New feed rate') }}</p>
+          <p id="resultFeedRate" class="mt-2 text-3xl font-semibold text-primaryText">—</p>
+        </div>
+
+        <div class="mt-6 flex justify-end">
+          <button
+            id="doneBtn"
+            type="button"
+            class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition"
+          >
+            {{ _('Done') }}
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  .cal-panel {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+  .cal-panel[data-open="true"] {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cal-panel { transition: none; }
+  }
+</style>
+
+<script>
+  (function () {
+    const runCalibrationBtn = document.getElementById('runCalibrationBtn');
+    const hint = document.getElementById('calibrationHint');
+    const calibrationPopUp = document.getElementById('calibrationPopUp');
+    const panel = calibrationPopUp.querySelector('[data-panel]');
+    const backdrop = calibrationPopUp.querySelector('[data-backdrop]');
+    const enterWeightPage = document.getElementById('enterWeightPage');
+    const showResultPage = document.getElementById('showResultPage');
+    const runSecondsText = document.getElementById('runSecondsText');
+    const dispensedWeightInput = document.getElementById('dispensedWeight');
+    const weightError = document.getElementById('weightError');
+    const submitBtn = document.getElementById('submitWeightBtn');
+    const cancelBtn = document.getElementById('cancelCalibrationBtn');
+    const doneBtn = document.getElementById('doneBtn');
+    const resultFeedRate = document.getElementById('resultFeedRate');
+    const currentFeedRate = document.getElementById('currentFeedRate');
+    const lastCalibrationTime = document.getElementById('lastCalibrationTime');
+    const lastCalibrationTimeValue = document.getElementById('lastCalibrationTimeValue');
+    
+    let runSeconds = null;
+    let lastFocused = null;
+
+    function showHint(message) {
+      hint.textContent = message;
+      hint.classList.remove('hidden');
+    }
+
+    function clearHint() {
+      hint.textContent = '';
+      hint.classList.add('hidden');
+    }
+
+    function busyMessage(state) {
+      if (state === 'feeding') return {{ _('A feeding is in progress. Wait until the feeder is idle, then try again.')|tojson }};
+      if (state === 'calibrating') return {{ _('A calibration is already running. Finish it before starting another.')|tojson }};
+      return {{ _('The feeder is busy. Wait until it is idle, then try again.')|tojson }};
+    }
+
+    function openPopUp() {
+      lastFocused = document.activeElement;
+      showResultPage.classList.add('hidden');
+      enterWeightPage.classList.remove('hidden');
+      dispensedWeightInput.value = '';
+      weightError.classList.add('hidden');
+      calibrationPopUp.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      requestAnimationFrame(function () {
+        panel.dataset.open = 'true';
+        dispensedWeightInput.focus();
+      });
+    }
+
+    function closePopUp() {
+      panel.dataset.open = 'false';
+      calibrationPopUp.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+      if (lastFocused) lastFocused.focus();
+    }
+
+    function cancelCalibration() {
+      fetch('/api/calibration/cancel', { method: 'POST' }).catch(function () {});
+      closePopUp();
+    }
+
+    function dismiss() {
+      if (showResultPage.classList.contains('hidden')) {
+        cancelCalibration();
+      } else {
+        closePopUp();
+      }
+    }
+
+    runCalibrationBtn.addEventListener('click', function () {
+      clearHint();
+      runCalibrationBtn.disabled = true;
+      fetch('/api/calibration/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+        .then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            return { status: res.status, ok: res.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (result.status === 409) {
+            showHint(busyMessage(result.data.state));
+            return;
+          }
+          if (!result.ok) throw new Error('request failed');
+          runSeconds = result.data.seconds;
+          runSecondsText.textContent = runSeconds;
+          openPopUp();
+        })
+        .catch(function () {
+          showHint({{ _('Couldn’t reach the feeder. Check the connection and try again.')|tojson }});
+        })
+        .finally(function () {
+          runCalibrationBtn.disabled = false;
+        });
+    });
+
+    submitBtn.addEventListener('click', function () {
+      const grams = parseFloat(dispensedWeightInput.value);
+      if (!(grams > 0)) {
+        weightError.textContent = {{ _('Enter the dispensed weight in grams to continue.')|tojson }};
+        weightError.classList.remove('hidden');
+        dispensedWeightInput.focus();
+        return;
+      }
+      weightError.classList.add('hidden');
+      submitBtn.disabled = true;
+      fetch('/api/calibration/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ run_seconds: runSeconds, measured_grams: grams }),
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error('request failed');
+          return res.json();
+        })
+        .then(function (data) {
+          const rate = Number(data.feed_rate).toFixed(2);
+          resultFeedRate.textContent = rate + ' g/s';
+          currentFeedRate.textContent = rate;
+          if (lastCalibrationTimeValue) {
+            lastCalibrationTimeValue.textContent = {{ _('Just now')|tojson }};
+            lastCalibrationTime.classList.remove("border-buttonBorder");
+            lastCalibrationTime.classList.add("border-ok")
+          }
+          enterWeightPage.classList.add('hidden');
+          showResultPage.classList.remove('hidden');
+          doneBtn.focus();
+        })
+        .catch(function () {
+          weightError.textContent = {{ _('Couldn’t save the calibration. Try again.')|tojson }};
+          weightError.classList.remove('hidden');
+        })
+        .finally(function () {
+          submitBtn.disabled = false;
+        });
+    });
+
+    dispensedWeightInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitBtn.click();
+      }
+    });
+
+    cancelBtn.addEventListener('click', cancelCalibration);
+    doneBtn.addEventListener('click', closePopUp);
+    backdrop.addEventListener('click', dismiss);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !calibrationPopUp.classList.contains('hidden')) dismiss();
+    });
+  })();
+</script>
+
+{% endblock %}
