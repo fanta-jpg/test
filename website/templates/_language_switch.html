@@ -1,13 +1,15 @@
 {# EN | DA toggle with flags. Import with context:
    {% from "_language_switch.html" import language_switch with context %}
-   Flags are inline SVG, not emoji -- Windows doesn't draw flag emoji. #}
-{% macro flag(code) %}
+   Flags are inline SVG, not emoji -- Windows doesn't draw flag emoji.
+   compact=True shows the flags only (the phone top bar). id_suffix keeps the
+   flag's clipPath id unique when the switch is on a page twice. #}
+{% macro flag(code, id_suffix='') %}
 {% if code == 'en' %}
 <svg viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" aria-hidden="true" class="h-3.5 w-5 shrink-0 rounded-sm">
-  <clipPath id="flagUkClip"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath>
+  <clipPath id="flagUkClip{{ id_suffix }}"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath>
   <rect width="60" height="30" fill="#012169"/>
   <path d="M0,0 L60,30 M60,0 L0,30" stroke="#FFFFFF" stroke-width="6"/>
-  <path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#flagUkClip)" stroke="#C8102E" stroke-width="4"/>
+  <path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#flagUkClip{{ id_suffix }})" stroke="#C8102E" stroke-width="4"/>
   <path d="M30,0 v30 M0,15 h60" stroke="#FFFFFF" stroke-width="10"/>
   <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/>
 </svg>
@@ -20,7 +22,7 @@
 {% endif %}
 {% endmacro %}
 
-{% macro language_switch() %}
+{% macro language_switch(compact=False) %}
 {% set names = {'en': 'English', 'da': 'Dansk'} %}
 <form method="post" action="{{ url_for('views.set_language') }}" class="inline-flex rounded-lg border border-buttonBorder bg-darkBG p-0.5" aria-label="{{ _('Language') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -33,11 +35,12 @@
     lang="{{ code }}"
     title="{{ names[code] }}"
     aria-pressed="{{ 'true' if active else 'false' }}"
-    class="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-bold uppercase tracking-wide transition focus:outline-none focus-visible:ring-2 focus-visible:ring-secondaryText/40
+    {% if compact %}aria-label="{{ names[code] }}"{% endif %}
+    class="flex items-center gap-1.5 rounded-md {{ 'px-1.5 py-1.5' if compact else 'px-2 py-1' }} text-xs font-bold uppercase tracking-wide transition focus:outline-none focus-visible:ring-2 focus-visible:ring-secondaryText/40
       {% if active %}bg-hoverDarkBG text-primaryText{% else %}text-secondaryText opacity-60 hover:opacity-100 hover:text-primaryText{% endif %}"
   >
-    {{ flag(code) }}
-    {{ code }}
+    {{ flag(code, '-compact' if compact else '') }}
+    {% if not compact %}{{ code }}{% endif %}
   </button>
   {% endfor %}
 </form>
