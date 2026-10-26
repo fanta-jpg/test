@@ -42,6 +42,9 @@ class Animal(db.Model):
     # feedings can be enforced even within the daily count/interval limits.
     last_fed_at = db.Column(db.DateTime, nullable=True)
 
+    # Completed feedings, for the dashboard's feeding history chart.
+    feedings = db.relationship('Feeding', backref='animal', cascade='all, delete-orphan')
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -74,6 +77,14 @@ class Calibration(db.Model):
             'measured_grams': self.measured_grams,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class Feeding(db.Model):
+    """One completed feeding, recorded when the ESP32 reports it finished."""
+    id = db.Column(db.Integer, primary_key=True)
+    animal_id = db.Column(db.Integer, db.ForeignKey('animal.id'), nullable=False, index=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    grams = db.Column(db.Float, nullable=False)
 
 
 class Log(db.Model):

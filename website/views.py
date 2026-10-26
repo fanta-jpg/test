@@ -18,12 +18,13 @@ views = Blueprint('views', __name__)
 @login_required
 def dashboard():
     last_event = Log.query.order_by(Log.timestamp.desc()).first()
-    animal_count = Animal.query.count()
+    animals = Animal.query.order_by(Animal.animal_number).all()
+    animal_count = len(animals)
     curr_time = datetime.utcnow()
     device_ip = device_info['ip']
     device_rssi = device_info['rssi']
     device_up_time = device_info['up_time']
-    return render_template("dashboard.html", last_event=last_event, animal_count=animal_count, curr_time=curr_time, system_status=api.systemState())
+    return render_template("dashboard.html", last_event=last_event, animal_count=animal_count, curr_time=curr_time, system_status=api.systemState(), animals=animals)
 
 #Animal overview page
 @views.route('/animals')

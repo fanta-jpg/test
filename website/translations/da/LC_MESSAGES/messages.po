@@ -423,3 +423,55 @@ msgstr "Tilføj et dyr med dette tag"
 msgid "No logs yet."
 msgstr "Ingen logposter endnu."
 
+
+#: website/templates/dashboard.html
+msgid "Feeding history"
+msgstr "Fodringshistorik"
+
+#: website/templates/dashboard.html
+msgid "Grams fed. Times are in UTC."
+msgstr "Gram fodret. Tider er i UTC."
+
+#: website/templates/dashboard.html
+msgid "Time range"
+msgstr "Tidsperiode"
+
+#: website/templates/dashboard.html
+msgid "Last 24 hours"
+msgstr "Seneste 24 timer"
+
+#: website/templates/dashboard.html
+msgid "Last 7 days"
+msgstr "Seneste 7 dage"
+
+#: website/templates/dashboard.html
+msgid "Fed"
+msgstr "Fodret"
+
+#: website/templates/dashboard.html
+msgid "Couldn’t load the feeding history."
+msgstr "Fodringshistorikken kunne ikke indlæses."
+
+#: website/templates/dashboard.html
+msgid "Show as table"
+msgstr "Vis som tabel"
+
+#: website/templates/dashboard.html
+msgid "Time"
+msgstr "Tid"
+
+#: website/templates/dashboard.html
+msgid "No animals registered yet."
+msgstr "Ingen dyr registreret endnu."
+
+#: website/templates/dashboard.html
+msgid "Daily max"
+msgstr "Daglig maks."
+
+#: website/templates/dashboard.html
+msgid "Grams fed per hour, last 24 hours"
+msgstr "Gram fodret pr. time, seneste 24 timer"
+
+#: website/templates/dashboard.html
+msgid "Grams fed per day, last 7 days"
+msgstr "Gram fodret pr. dag, seneste 7 dage"

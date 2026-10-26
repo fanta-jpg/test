@@ -119,6 +119,7 @@ def create_app():
         click.echo(f'Password updated for {username}')
 
     from .views import views
+    from . import api as api_module
     from .api import api
     from .auth import auth
 
@@ -128,5 +129,6 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        api_module.backfillFeedings()
 
     return app

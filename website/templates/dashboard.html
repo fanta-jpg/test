@@ -53,6 +53,76 @@
   </div>
 </div>
 
+<section class="mt-8 rounded-md bg-hoverLightBG px-5 py-5">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h2 class="text-lg font-semibold text-primaryText">{{ _('Feeding history') }}</h2>
+      <p class="mt-1 text-xs text-secondaryText">{{ _('Grams fed. Times are in UTC.') }}</p>
+    </div>
+    {% if animals %}
+    <div class="flex flex-wrap items-center gap-3">
+      <label class="sr-only" for="historyAnimal">{{ _('Animal') }}</label>
+      <select id="historyAnimal" class="rounded-lg border border-buttonBorder bg-darkBG px-3 py-2 text-sm font-semibold text-primaryText">
+        {% for animal in animals %}
+        <option value="{{ animal.id }}">{{ animal.animal_number }}</option>
+        {% endfor %}
+      </select>
+      <div class="inline-flex rounded-lg border border-buttonBorder p-0.5" role="group" aria-label="{{ _('Time range') }}">
+        <button type="button" data-range="day" class="historyRange rounded-md px-3 py-1.5 text-sm font-semibold transition">{{ _('Last 24 hours') }}</button>
+        <button type="button" data-range="week" class="historyRange rounded-md px-3 py-1.5 text-sm font-semibold transition">{{ _('Last 7 days') }}</button>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if animals %}
+  <div class="mt-5 flex flex-wrap gap-x-10 gap-y-2">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Fed') }}</p>
+      <p id="historyTotalGrams" class="mt-1 text-2xl font-semibold text-primaryText">—</p>
+    </div>
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Feedings') }}</p>
+      <p id="historyTotalCount" class="mt-1 text-2xl font-semibold text-primaryText">—</p>
+    </div>
+    <div id="historyDailyMaxStat" class="hidden">
+      <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-secondaryText">
+        <span aria-hidden="true" class="inline-block h-px w-4 bg-secondaryText"></span>{{ _('Daily max') }}
+      </p>
+      <p id="historyDailyMax" class="mt-1 text-2xl font-semibold text-primaryText">—</p>
+    </div>
+  </div>
+
+  <div id="historyChart" class="relative mt-4 transition-opacity" style="height: 240px;">
+    <svg id="historySvg" class="block h-full w-full overflow-visible" role="img" aria-labelledby="historyChartTitle"></svg>
+    <div id="historyTooltip" class="pointer-events-none absolute z-10 hidden whitespace-nowrap rounded-md border border-buttonBorder bg-darkBG px-3 py-2 text-xs shadow-lg" role="status">
+      <p id="historyTooltipValue" class="text-sm font-semibold text-primaryText"></p>
+      <p id="historyTooltipLabel" class="text-secondaryText"></p>
+    </div>
+    <p id="historyError" class="absolute inset-0 hidden flex items-center justify-center text-sm text-secondaryText">{{ _('Couldn’t load the feeding history.') }}</p>
+  </div>
+  <p id="historyChartTitle" class="sr-only"></p>
+
+  <details class="mt-3 text-sm">
+    <summary class="cursor-pointer text-secondaryText hover:text-primaryText">{{ _('Show as table') }}</summary>
+    <div class="mt-2 max-h-72 overflow-y-auto">
+      <table class="w-full border-separate border-spacing-0">
+        <thead>
+          <tr>
+            <th class="bg-darkBG px-4 py-2 text-left text-sm font-bold text-secondaryText rounded-l-lg">{{ _('Time') }}</th>
+            <th class="bg-darkBG px-4 py-2 text-right text-sm font-bold text-secondaryText">{{ _('Feed (g)') }}</th>
+            <th class="bg-darkBG px-4 py-2 text-right text-sm font-bold text-secondaryText rounded-r-lg">{{ _('Feedings') }}</th>
+          </tr>
+        </thead>
+        <tbody id="historyTable" style="font-variant-numeric: tabular-nums;"></tbody>
+      </table>
+    </div>
+  </details>
+  {% else %}
+  <p class="mt-4 text-sm text-secondaryText">{{ _('No animals registered yet.') }}</p>
+  {% endif %}
+</section>
+
 <div class="mt-8 flex flex-wrap gap-3">
   <a href="/animals" class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition">{{ _('View Animals') }}</a>
   <a href="/calibration" class="rounded-lg border border-buttonBorder px-4 py-2.5 text-sm font-semibold text-primaryText bg-hoverDarkBG hover:bg-hoverLightBG transition">{{ _('Calibration') }}</a>
@@ -118,4 +188,261 @@
     setInterval(pollDevice, 2000);
   })();
 </script>
+
+{% if animals %}
+<script>
+  // Feeding history chart: grams per hour (last 24 h) or per day (last 7 days)
+  // for the selected animal, from /api/animals/<id>/feedings.
+  (function () {
+    const SERIES = '#3987e5';
+    const GRID = 'rgba(255, 255, 255, 0.08)';
+    const AXIS = '#2F4553';
+    const MUTED = '#B1BAD3';
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const lang = document.documentElement.lang || 'en';
+    const text = {
+      feedings: {{ _('Feedings')|tojson }},
+      titleDay: {{ _('Grams fed per hour, last 24 hours')|tojson }},
+      titleWeek: {{ _('Grams fed per day, last 7 days')|tojson }},
+    };
+
+    const animalSelect = document.getElementById('historyAnimal');
+    const rangeButtons = document.querySelectorAll('.historyRange');
+    const chartBox = document.getElementById('historyChart');
+    const svg = document.getElementById('historySvg');
+    const tooltip = document.getElementById('historyTooltip');
+    const tooltipValue = document.getElementById('historyTooltipValue');
+    const tooltipLabel = document.getElementById('historyTooltipLabel');
+    const errorText = document.getElementById('historyError');
+    const chartTitle = document.getElementById('historyChartTitle');
+    const totalGrams = document.getElementById('historyTotalGrams');
+    const totalCount = document.getElementById('historyTotalCount');
+    const dailyMaxStat = document.getElementById('historyDailyMaxStat');
+    const dailyMax = document.getElementById('historyDailyMax');
+    const table = document.getElementById('historyTable');
+
+    let range = 'day';
+    let data = null;
+    let requestId = 0;
+
+    // Remember the last animal / range on this browser.
+    try {
+      const saved = JSON.parse(localStorage.getItem('feedingHistory') || '{}');
+      if (saved.range === 'day' || saved.range === 'week') range = saved.range;
+      if (saved.animal && animalSelect.querySelector('option[value="' + saved.animal + '"]')) {
+        animalSelect.value = saved.animal;
+      }
+    } catch (e) {}
+
+    function save() {
+      try {
+        localStorage.setItem('feedingHistory', JSON.stringify({ animal: animalSelect.value, range: range }));
+      } catch (e) {}
+    }
+
+    function grams(n) {
+      return Math.round(n).toLocaleString(lang) + ' g';
+    }
+
+    function formatTick(n) {
+      return n >= 1000 ? (n / 1000).toLocaleString(lang, { maximumFractionDigits: 1 }) + 'k' : n.toLocaleString(lang);
+    }
+
+    function hourLabel(date) {
+      return date.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' });
+    }
+
+    function dayLabel(date) {
+      return date.toLocaleDateString(lang, { weekday: 'short', day: 'numeric', timeZone: 'UTC' });
+    }
+
+    // Full label for the tooltip and table, e.g. "Mon 20, 14:00–15:00".
+    function bucketLabel(bucket) {
+      const start = new Date(bucket.start);
+      if (range === 'week') {
+        return start.toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' });
+      }
+      const end = new Date(start.getTime() + 3600 * 1000);
+      return start.toLocaleDateString(lang, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) +
+        ', ' + hourLabel(start) + '–' + hourLabel(end);
+    }
+
+    function niceStep(max, ticks) {
+      const raw = max / ticks;
+      const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+      const norm = raw / mag;
+      return (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10) * mag;
+    }
+
+    function el(name, attrs) {
+      const node = document.createElementNS(SVG_NS, name);
+      for (const key in attrs) node.setAttribute(key, attrs[key]);
+      return node;
+    }
+
+    function showTooltip(bucket, x, y) {
+      tooltipValue.textContent = grams(bucket.grams);
+      tooltipLabel.textContent = bucketLabel(bucket) + ' · ' + text.feedings + ': ' + bucket.count;
+      tooltip.classList.remove('hidden');
+      const boxWidth = chartBox.clientWidth;
+      const tipWidth = tooltip.offsetWidth;
+      tooltip.style.left = Math.max(0, Math.min(boxWidth - tipWidth, x - tipWidth / 2)) + 'px';
+      tooltip.style.top = Math.max(0, y - tooltip.offsetHeight - 8) + 'px';
+    }
+
+    function hideTooltip() {
+      tooltip.classList.add('hidden');
+    }
+
+    function draw() {
+      svg.replaceChildren();
+      hideTooltip();
+      if (!data) return;
+
+      const width = chartBox.clientWidth;
+      const height = chartBox.clientHeight;
+      const pad = { top: 12, right: 8, bottom: 26, left: 44 };
+      const plotW = width - pad.left - pad.right;
+      const plotH = height - pad.top - pad.bottom;
+      svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+
+      const buckets = data.buckets;
+      const showMax = range === 'week' && data.daily_max_grams > 0;
+      const peak = Math.max.apply(null, buckets.map(function (b) { return b.grams; }).concat(showMax ? [data.daily_max_grams] : []));
+      const step = niceStep(peak || 100, 4);
+      const yMax = Math.ceil((peak || 100) / step) * step;
+      const y = function (v) { return pad.top + plotH - (v / yMax) * plotH; };
+
+      // Gridlines and y-axis ticks
+      for (let v = 0; v <= yMax + 1e-9; v += step) {
+        if (v > 0) svg.appendChild(el('line', { x1: pad.left, x2: width - pad.right, y1: y(v), y2: y(v), stroke: GRID, 'stroke-width': 1 }));
+        const tick = el('text', { x: pad.left - 8, y: y(v) + 4, 'text-anchor': 'end', fill: MUTED, 'font-size': 11, style: 'font-variant-numeric: tabular-nums' });
+        tick.textContent = formatTick(v);
+        svg.appendChild(tick);
+      }
+
+      // Columns
+      const band = plotW / buckets.length;
+      const barW = Math.min(24, Math.max(2, band - 2), band * 0.7);
+      const labelEvery = range === 'week' ? 1 : (band < 18 ? 6 : 3);
+      buckets.forEach(function (bucket, i) {
+        const cx = pad.left + band * i + band / 2;
+        if (bucket.grams > 0) {
+          const top = y(bucket.grams);
+          const h = pad.top + plotH - top;
+          const r = Math.min(4, h, barW / 2);
+          const x0 = cx - barW / 2, x1 = cx + barW / 2, base = pad.top + plotH;
+          // Rounded top, square at the baseline
+          svg.appendChild(el('path', {
+            d: 'M' + x0 + ',' + base + 'V' + (top + r) + 'Q' + x0 + ',' + top + ' ' + (x0 + r) + ',' + top +
+               'H' + (x1 - r) + 'Q' + x1 + ',' + top + ' ' + x1 + ',' + (top + r) + 'V' + base + 'Z',
+            fill: SERIES, class: 'historyBar', 'data-i': i,
+          }));
+        }
+        if (i % labelEvery === 0 || (range === 'day' && i === buckets.length - 1 && band >= 18)) {
+          const date = new Date(bucket.start);
+          const label = el('text', { x: cx, y: height - 8, 'text-anchor': 'middle', fill: MUTED, 'font-size': 11 });
+          label.textContent = range !== 'week' ? hourLabel(date)
+            : band < 64 ? date.toLocaleDateString(lang, { weekday: 'short', timeZone: 'UTC' }) : dayLabel(date);
+          svg.appendChild(label);
+        }
+      });
+
+      // Baseline
+      svg.appendChild(el('line', { x1: pad.left, x2: width - pad.right, y1: pad.top + plotH, y2: pad.top + plotH, stroke: AXIS, 'stroke-width': 1 }));
+
+      // Daily max reference line (week view)
+      if (showMax) {
+        const ym = y(data.daily_max_grams);
+        svg.appendChild(el('line', { x1: pad.left, x2: width - pad.right, y1: ym, y2: ym, stroke: MUTED, 'stroke-width': 1, 'stroke-opacity': 0.6 }));
+      }
+
+      // Hover / focus targets: the whole column slot, bigger than the bar
+      buckets.forEach(function (bucket, i) {
+        const hit = el('rect', { x: pad.left + band * i, y: pad.top, width: band, height: plotH, fill: 'transparent', tabindex: 0, 'aria-label': bucketLabel(bucket) + ': ' + grams(bucket.grams) });
+        const bar = svg.querySelector('.historyBar[data-i="' + i + '"]');
+        const cx = pad.left + band * i + band / 2;
+        function enter() {
+          if (bar) bar.setAttribute('fill-opacity', 0.75);
+          showTooltip(bucket, cx, bucket.grams > 0 ? y(bucket.grams) : pad.top + plotH);
+        }
+        function leave() {
+          if (bar) bar.removeAttribute('fill-opacity');
+          hideTooltip();
+        }
+        hit.addEventListener('pointerenter', enter);
+        hit.addEventListener('pointerleave', leave);
+        hit.addEventListener('focus', enter);
+        hit.addEventListener('blur', leave);
+        svg.appendChild(hit);
+      });
+    }
+
+    function render() {
+      chartTitle.textContent = range === 'week' ? text.titleWeek : text.titleDay;
+      totalGrams.textContent = grams(data.total_grams);
+      totalCount.textContent = data.total_count.toLocaleString(lang);
+      dailyMax.textContent = grams(data.daily_max_grams);
+      dailyMaxStat.classList.toggle('hidden', range !== 'week');
+
+      table.replaceChildren();
+      data.buckets.slice().reverse().forEach(function (bucket) {
+        const row = document.createElement('tr');
+        [bucketLabel(bucket), Math.round(bucket.grams).toLocaleString(lang), bucket.count.toLocaleString(lang)].forEach(function (value, i) {
+          const cell = document.createElement('td');
+          cell.className = 'px-4 py-2 text-sm text-secondaryText border-t border-white/10' + (i ? ' text-right' : '');
+          cell.textContent = value;
+          row.appendChild(cell);
+        });
+        table.appendChild(row);
+      });
+      draw();
+    }
+
+    function load(quiet) {
+      rangeButtons.forEach(function (btn) {
+        const active = btn.dataset.range === range;
+        btn.setAttribute('aria-pressed', active);
+        btn.className = 'historyRange rounded-md px-3 py-1.5 text-sm font-semibold transition ' +
+          (active ? 'bg-hoverDarkBG text-primaryText' : 'text-secondaryText hover:text-primaryText');
+      });
+      // Keep the previous chart, dimmed, until the new data arrives
+      if (data && !quiet) chartBox.style.opacity = 0.5;
+      const id = ++requestId;
+      fetch('/api/animals/' + animalSelect.value + '/feedings?range=' + range)
+        .then(function (res) {
+          if (!res.ok) throw new Error('request failed');
+          return res.json();
+        })
+        .then(function (d) {
+          if (id !== requestId) return;
+          data = d;
+          errorText.classList.add('hidden');
+          render();
+        })
+        .catch(function () {
+          if (id !== requestId) return;
+          data = null;
+          svg.replaceChildren();
+          errorText.classList.remove('hidden');
+        })
+        .finally(function () {
+          if (id === requestId) chartBox.style.opacity = 1;
+        });
+    }
+
+    animalSelect.addEventListener('change', function () { save(); load(); });
+    rangeButtons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        range = btn.dataset.range;
+        save();
+        load();
+      });
+    });
+    new ResizeObserver(draw).observe(chartBox);
+    load();
+    setInterval(function () { load(true); }, 60000);
+  })();
+</script>
+{% endif %}
 {% endblock %}

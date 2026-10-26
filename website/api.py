@@ -19,7 +19,7 @@ from flask_babel import gettext as _
 from flask_login import login_required
 
 from . import csrf
-from .models import Animal, Calibration, Log, db
+from .models import Animal, Calibration, Feeding, Log, db
 
 
 api = Blueprint('api', __name__)
@@ -204,6 +204,12 @@ def feeding_complete():
         syncTodaysFeedings(animal)
         animal.feedings_today += 1
         animal.last_fed_at = datetime.utcnow()
+        # Without a reported weight, count the amount it was told to dispense.
+        try:
+            fed_grams = float(grams) if grams is not None else animal.feed_amount
+        except (TypeError, ValueError):
+            fed_grams = animal.feed_amount
+        db.session.add(Feeding(animal=animal, timestamp=animal.last_fed_at, grams=fed_grams))
         db.session.commit()
 
     addLog('feeding', message=f'{animal_number}: fed {grams}g'
@@ -254,6 +260,66 @@ def device_info_view():
     """Feeder connection info, polled by the dashboard."""
     return jsonify({'online': deviceOnline(), 'ip': device_info['ip'],
                     'rssi': device_info['rssi'], 'up_time': device_info['up_time']})
+
+
+def backfillFeedings():
+    """Fill the Feeding table from older 'feeding' log entries, once.
+
+    Feedings were only logged as text ("A-001: fed 250g") before the Feeding
+    table existed. Runs at startup and does nothing once any feeding is stored.
+    Entries for animals that were since deleted or renumbered are skipped.
+    """
+    if Feeding.query.first() is not None:
+        return
+    animals = {a.animal_number: a for a in Animal.query.all()}
+    for log in Log.query.filter_by(event_type='feeding').order_by(Log.timestamp):
+        match = re.fullmatch(r'(.+): (?:fed ([\d.]+)g|feeding completed)', log.message or '')
+        animal = animals.get(match.group(1)) if match else None
+        if animal is None:
+            continue
+        grams = float(match.group(2)) if match.group(2) else animal.feed_amount
+        db.session.add(Feeding(animal=animal, timestamp=log.timestamp, grams=grams))
+    db.session.commit()
+
+
+@api.route('/animals/<int:animal_id>/feedings', methods=['GET'])
+@login_required
+def feeding_history(animal_id):
+    """Grams fed per hour (?range=day, last 24 h) or per day (?range=week, last 7 days).
+
+    Buckets are in UTC, like everything else here; the dashboard chart reads them.
+    """
+    animal = db.session.get(Animal, animal_id)
+    if animal is None:
+        return jsonify({'error': 'not_found'}), 404
+
+    now = datetime.utcnow()
+    if request.args.get('range') == 'week':
+        step = timedelta(days=1)
+        last = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        count = 7
+    else:
+        step = timedelta(hours=1)
+        last = now.replace(minute=0, second=0, microsecond=0)
+        count = 24
+    first = last - step * (count - 1)
+
+    buckets = [{'start': first + step * i, 'grams': 0.0, 'count': 0} for i in range(count)]
+    feedings = Feeding.query.filter(Feeding.animal_id == animal_id,
+                                    Feeding.timestamp >= first).all()
+    for feeding in feedings:
+        bucket = buckets[min(int((feeding.timestamp - first) / step), count - 1)]
+        bucket['grams'] += feeding.grams
+        bucket['count'] += 1
+    for bucket in buckets:
+        bucket['start'] = bucket['start'].isoformat() + 'Z'
+
+    return jsonify({
+        'buckets': buckets,
+        'total_grams': sum(b['grams'] for b in buckets),
+        'total_count': len(feedings),
+        'daily_max_grams': animal.feed_amount * animal.max_feedings_per_day,
+    })
 
 
 # --------------------------------------------------------------------------- #
