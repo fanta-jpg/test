@@ -159,6 +159,7 @@
     }
 
     function busyMessage(state) {
+      if (state === 'offline') return {{ _('The feeder is offline. Check that it is powered on and connected, then try again.')|tojson }};
       if (state === 'feeding') return {{ _('A feeding is in progress. Wait until the feeder is idle, then try again.')|tojson }};
       if (state === 'calibrating') return {{ _('A calibration is already running. Finish it before starting another.')|tojson }};
       return {{ _('The feeder is busy. Wait until it is idle, then try again.')|tojson }};

@@ -23,8 +23,7 @@ def dashboard():
     device_ip = device_info['ip']
     device_rssi = device_info['rssi']
     device_up_time = device_info['up_time']
-    calibration_timeout = ( datetime.utcnow() - api._calibrating_since if api._calibrating_since is not None else None)
-    return render_template("dashboard.html", last_event=last_event, animal_count=animal_count, curr_time=curr_time, system_status=api.overallStatus())
+    return render_template("dashboard.html", last_event=last_event, animal_count=animal_count, curr_time=curr_time, system_status=api.systemState())
 
 #Animal overview page
 @views.route('/animals')

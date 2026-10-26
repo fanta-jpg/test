@@ -30,14 +30,14 @@ CALIBRATION_RUN_TIME = 10.0
 # How long a feeding / calibration holds the "busy" lock before it auto-clears,
 # in case the ESP32 or the browser never reports back.
 FEEDING_TIMEOUT = timedelta(seconds=120)
-CALIBRATION_TIMEOUT = timedelta(seconds=10)
+CALIBRATION_TIMEOUT = timedelta(minutes=1)
 
 # Coarse, in-memory system state. A module global is fine for the single-process
 # dev server; move it to the DB or a real job queue before running multiple
 # workers or multiple feeders.
 _pending_command = None       # one-shot motor command the ESP32 polls for
 _feeding_until = None         # datetime; feeder is dispensing until this moment
-_calibrating_since = None     # datetime; a calibration is running / awaiting its weight
+_calibrating_until = None     # datetime; a calibration is running / awaiting its weight until this moment
 device_info = {
         'last_seen': None,
         'up_time': None,
@@ -59,16 +59,12 @@ def requireDeviceKey(f):
     return wrapper
 
 
-def overallStatus():
-    """'offline' if the feeder isn't reporting, otherwise _system_state()."""
-    return _system_state() if deviceOnline() else 'offline'
-
-def _system_state():
-    """One of 'idle', 'feeding', 'calibrating'."""
+def systemState():
+    """One of 'offline', 'calibrating', 'feeding', 'idle'."""
+    if not deviceOnline():
+        return 'offline'
     now = datetime.utcnow()
-    #if _pending_command is not None:
-    #    return 'calibrating'
-    if _calibrating_since is not None and now - _calibrating_since < CALIBRATION_TIMEOUT:
+    if _calibrating_until is not None and now < _calibrating_until:
         return 'calibrating'
     if _feeding_until is not None and now < _feeding_until:
         return 'feeding'
@@ -219,7 +215,7 @@ def feeding_complete():
 @login_required
 def status():
     """Coarse system state, used by the UI to gate actions like calibration."""
-    return jsonify({'status': overallStatus()})
+    return jsonify({'status': systemState()})
 
 
 @api.route('/logs/latest', methods=['GET'])
@@ -268,15 +264,15 @@ def device_info_view():
 def calibration_run():
     """Frontend pressed the calibration button; queue a motor run for the ESP32.
 
-    Refused with 409 unless the feeder is idle.
+    Refused with 409 unless the feeder is online and idle.
     """
-    global _pending_command, _calibrating_since
-    state = _system_state()
+    global _pending_command, _calibrating_until
+    state = systemState()
     if state != 'idle':
         return jsonify({'error': 'busy', 'state': state}), 409
 
     _pending_command = {'action': 'run_motor', 'seconds': CALIBRATION_RUN_TIME}
-    _calibrating_since = datetime.utcnow()
+    _calibrating_until = datetime.utcnow() + CALIBRATION_TIMEOUT
     return jsonify({'status': 'queued', 'seconds': CALIBRATION_RUN_TIME})
 
 
@@ -284,9 +280,9 @@ def calibration_run():
 @login_required
 def calibration_cancel():
     """Frontend closed the calibration dialog without submitting a weight."""
-    global _pending_command, _calibrating_since
+    global _pending_command, _calibrating_until
     _pending_command = None
-    _calibrating_since = None
+    _calibrating_until = None
     return jsonify({'status': 'cancelled'})
 
 
@@ -320,9 +316,9 @@ def submit_calibration():
     db.session.commit()
     addLog('calibration', message=f'New feed rate: {feed_rate:.2f} g/s')
 
-    global _pending_command, _calibrating_since
+    global _pending_command, _calibrating_until
     _pending_command = None
-    _calibrating_since = None
+    _calibrating_until = None
 
     return jsonify({'feed_rate': round(feed_rate, 3)})
 

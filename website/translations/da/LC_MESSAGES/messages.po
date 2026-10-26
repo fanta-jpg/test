@@ -295,6 +295,10 @@ msgstr "En fodring er i gang. Vent, til foderautomaten er ledig, og prøv igen."
 msgid "A calibration is already running. Finish it before starting another."
 msgstr "En kalibrering kører allerede. Afslut den, før du starter en ny."
 
+#: website/templates/calibration.html:162
+msgid "The feeder is offline. Check that it is powered on and connected, then try again."
+msgstr "Foderautomaten er offline. Kontrollér, at den er tændt og forbundet, og prøv igen."
+
 #: website/templates/calibration.html:167
 msgid "The feeder is busy. Wait until it is idle, then try again."
 msgstr "Foderautomaten er optaget. Vent, til den er ledig, og prøv igen."
