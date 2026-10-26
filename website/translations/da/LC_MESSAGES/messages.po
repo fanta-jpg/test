@@ -475,3 +475,7 @@ msgstr "Gram fodret pr. time, seneste 24 timer"
 #: website/templates/dashboard.html
 msgid "Grams fed per day, last 7 days"
 msgstr "Gram fodret pr. dag, seneste 7 dage"
+
+#: website/templates/base.html
+msgid "Pages"
+msgstr "Sider"
