@@ -98,12 +98,13 @@
 
       <!-- Mobile top bar -->
       <header class="flex items-center justify-between gap-2 bg-darkBG border-b border-buttonBorder px-3 sm:px-4 py-3 dsk:hidden">
-        <a href="/" class="flex items-center gap-2">
-          <img src="{{ url_for('static', filename='wheat.svg') }}" alt="" class="h-6 w-6">
-          <span class="hidden sm:inline font-semibold tracking-tight text-primaryText">{{ _('Feeding Station') }}</span>
-        </a>
+        <!-- On small screens this bar replaces the sidebar: logo and page
+             shortcuts on the left, language and sign-out on the right -->
         <div class="flex items-center gap-1">
-          <!-- Page shortcuts, language and sign-out; on small screens this bar replaces the sidebar -->
+          <a href="/" class="mr-1 flex items-center gap-2 sm:mr-3">
+            <img src="{{ url_for('static', filename='wheat.svg') }}" alt="" class="h-6 w-6">
+            <span class="hidden sm:inline font-semibold tracking-tight text-primaryText">{{ _('Feeding Station') }}</span>
+          </a>
           <nav class="flex items-center gap-1" aria-label="{{ _('Pages') }}">
             {% for href, label, icon_path in nav_items %}
             {% set is_active = (href == '/' and request.path == '/') or (href != '/' and request.path.startswith(href)) %}
@@ -117,8 +118,9 @@
             >{{ nav_icon(icon_path) }}</a>
             {% endfor %}
           </nav>
-          {% if current_user.is_authenticated %}
-          <span aria-hidden="true" class="mx-1 h-6 w-px bg-buttonBorder"></span>
+        </div>
+        {% if current_user.is_authenticated %}
+        <div class="flex items-center gap-1">
           {{ language_switch(compact=True) }}
           <form method="post" action="{{ url_for('auth.logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -131,8 +133,8 @@
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" class="shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
             </button>
           </form>
-          {% endif %}
         </div>
+        {% endif %}
       </header>
 
       <!-- Sidebar -->
