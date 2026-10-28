@@ -25,27 +25,18 @@
             colors: {
               // Every colour on the site comes from this list (the chart and
               // the logo/tab icon read it too), so swapping these values
-              // re-themes the whole site. Some names date from the first, dark
-              // theme: lightBG is the page background, hoverLightBG the cards
-              // and dialogs, darkBG the input/table-header fill, hoverDarkBG
-              // the buttons.
+              // re-themes the whole site. The names date from the first, dark
+              // theme: lightBG is the page background, hoverLightBG the cards,
+              // dialogs, sidebar and top bar, darkBG the input/table-header
+              // fill, hoverDarkBG the buttons, and secondaryText doubles as
+              // the accent (current page, logo, chart bars).
               lightBG: '#F3F7F6',
               hoverLightBG: '#FFFFFF',
               darkBG: '#EAF3F1',
               hoverDarkBG: '#D4E8E4',
               buttonBorder: '#C3DCD8',
               primaryText: '#163E3B',
-              secondaryText: '#527470',
-              navBG: '#FFFFFF',                   // sidebar and phone top bar
-              navHover: '#EAF3F1',                // nav item under the pointer
-              accent: '#287A74',                  // current page in the nav
-              onAccent: '#FFFFFF',                // text/icon on the accent
-              divider: 'rgba(22, 62, 59, 0.10)',  // lines between table rows
-              backdrop: 'rgba(22, 62, 59, 0.40)', // dims the page behind dialogs
-              logo: '#287A74',                    // wheat logo and browser-tab icon
-              chartBar: '#00958A',
-              chartGrid: 'rgba(22, 62, 59, 0.08)',
-              chartAxis: '#C3DCD8',
+              secondaryText: '#287A74',
               gold: '#946B08',
               ok: '#2F9E5E',
               warn: '#D47A22',
@@ -68,13 +59,13 @@
       };
     </script>
     <script>
-      // Browser-tab icon in the "logo" colour from the list above
+      // Browser-tab icon in the secondaryText colour from the list above
       // (static/wheat.svg is the fallback).
       (function () {
         const box = document.createElement('div');
         box.innerHTML = {{ logo('')|trim|tojson }};
         const icon = box.firstChild;
-        icon.setAttribute('fill', tailwind.config.theme.extend.colors.logo);
+        icon.setAttribute('fill', tailwind.config.theme.extend.colors.secondaryText);
         icon.removeAttribute('class');
         document.querySelector('link[rel="shortcut icon"]').href =
           'data:image/svg+xml,' + encodeURIComponent(icon.outerHTML);
@@ -127,7 +118,7 @@
       {% macro nav_icon(icon_path) %}<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" class="shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_path }}"/></svg>{% endmacro %}
 
       <!-- Mobile top bar -->
-      <header class="flex items-center justify-between gap-2 bg-navBG border-b border-buttonBorder px-3 sm:px-4 py-3 dsk:hidden">
+      <header class="flex items-center justify-between gap-2 bg-hoverLightBG border-b border-buttonBorder px-3 sm:px-4 py-3 dsk:hidden">
         <!-- On small screens this bar replaces the sidebar: logo and page
              shortcuts on the left, language and sign-out on the right -->
         <div class="flex items-center gap-1">
@@ -144,7 +135,7 @@
               title="{{ label }}"
               {% if is_active %}aria-current="page"{% endif %}
               class="rounded-md p-2 transition-colors
-                {% if is_active %}bg-accent text-onAccent{% else %}text-secondaryText hover:text-primaryText hover:bg-navHover{% endif %}"
+                {% if is_active %}bg-secondaryText text-hoverLightBG{% else %}text-secondaryText hover:text-primaryText hover:bg-darkBG{% endif %}"
             >{{ nav_icon(icon_path) }}</a>
             {% endfor %}
           </nav>
@@ -158,7 +149,7 @@
               type="submit"
               aria-label="{{ _('Sign out') }} ({{ current_user.username }})"
               title="{{ _('Sign out') }} ({{ current_user.username }})"
-              class="rounded-md p-2 text-secondaryText hover:text-primaryText hover:bg-navHover transition-colors"
+              class="rounded-md p-2 text-secondaryText hover:text-primaryText hover:bg-darkBG transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" class="shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
             </button>
@@ -168,7 +159,7 @@
       </header>
 
       <!-- Sidebar -->
-      <aside class="hidden dsk:flex dsk:flex-col dsk:w-60 dsk:shrink-0 bg-navBG border-b dsk:border-b-0 dsk:border-r border-buttonBorder dsk:min-h-screen">
+      <aside class="hidden dsk:flex dsk:flex-col dsk:w-60 dsk:shrink-0 bg-hoverLightBG border-b dsk:border-b-0 dsk:border-r border-buttonBorder dsk:min-h-screen">
         <a href="/" class="hidden dsk:flex items-center gap-2 px-5 py-5 border-b border-buttonBorder">
           {{ logo('h-7 w-7') }}
           <span class="font-bold tracking-tight text-primaryText">FARMGAARD</span>
@@ -179,7 +170,7 @@
           <a
             href="{{ href }}"
             class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
-              {% if is_active %}bg-accent text-onAccent{% else %}text-primaryText hover:bg-navHover{% endif %}"
+              {% if is_active %}bg-secondaryText text-hoverLightBG{% else %}text-primaryText hover:bg-darkBG{% endif %}"
           >
             {{ nav_icon(icon_path) }}
             {{ label }}
@@ -188,7 +179,7 @@
         </nav>
 
         {% if current_user.is_authenticated %}
-        <div class="mt-auto dsk:sticky dsk:bottom-0 flex flex-col gap-4 border-t border-buttonBorder bg-navBG px-5 py-4">
+        <div class="mt-auto dsk:sticky dsk:bottom-0 flex flex-col gap-4 border-t border-buttonBorder bg-hoverLightBG px-5 py-4">
           <div class="flex items-center justify-between gap-3">
             <p class="text-xs font-semibold uppercase tracking-wide text-secondaryText">{{ _('Language') }}</p>
             {{ language_switch() }}

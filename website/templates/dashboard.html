@@ -196,11 +196,17 @@
   (function () {
     // Colours come from the theme list in base.html
     const COLORS = tailwind.config.theme.extend.colors;
-    const SERIES = COLORS.chartBar;
-    const GRID = COLORS.chartGrid;
-    const AXIS = COLORS.chartAxis;
+    const SERIES = COLORS.secondaryText;
+    const GRID = withAlpha(COLORS.primaryText, 0.08);
+    const AXIS = COLORS.buttonBorder;
     const MUTED = COLORS.secondaryText;
     const SVG_NS = 'http://www.w3.org/2000/svg';
+
+    // '#RRGGBB' -> 'rgba(r, g, b, alpha)'
+    function withAlpha(hex, alpha) {
+      const n = parseInt(hex.slice(1), 16);
+      return 'rgba(' + (n >> 16) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255) + ', ' + alpha + ')';
+    }
     const lang = document.documentElement.lang || 'en';
     const text = {
       feedings: {{ _('Feedings')|tojson }},
@@ -392,7 +398,7 @@
         const row = document.createElement('tr');
         [bucketLabel(bucket), Math.round(bucket.grams).toLocaleString(lang), bucket.count.toLocaleString(lang)].forEach(function (value, i) {
           const cell = document.createElement('td');
-          cell.className = 'px-4 py-2 text-sm text-secondaryText border-t border-divider' + (i ? ' text-right' : '');
+          cell.className = 'px-4 py-2 text-sm text-secondaryText border-t border-primaryText/10' + (i ? ' text-right' : '');
           cell.textContent = value;
           row.appendChild(cell);
         });
