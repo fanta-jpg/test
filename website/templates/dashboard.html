@@ -194,10 +194,12 @@
   // Feeding history chart: grams per hour (last 24 h) or per day (last 7 days)
   // for the selected animal, from /api/animals/<id>/feedings.
   (function () {
-    const SERIES = '#00958A';
-    const GRID = 'rgba(22, 62, 59, 0.08)';
-    const AXIS = '#C3DCD8';
-    const MUTED = '#527470';
+    // Colours come from the theme list in base.html
+    const COLORS = tailwind.config.theme.extend.colors;
+    const SERIES = COLORS.chartBar;
+    const GRID = COLORS.chartGrid;
+    const AXIS = COLORS.chartAxis;
+    const MUTED = COLORS.secondaryText;
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const lang = document.documentElement.lang || 'en';
     const text = {
@@ -390,7 +392,7 @@
         const row = document.createElement('tr');
         [bucketLabel(bucket), Math.round(bucket.grams).toLocaleString(lang), bucket.count.toLocaleString(lang)].forEach(function (value, i) {
           const cell = document.createElement('td');
-          cell.className = 'px-4 py-2 text-sm text-secondaryText border-t border-primaryText/10' + (i ? ' text-right' : '');
+          cell.className = 'px-4 py-2 text-sm text-secondaryText border-t border-divider' + (i ? ' text-right' : '');
           cell.textContent = value;
           row.appendChild(cell);
         });

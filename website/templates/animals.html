@@ -43,25 +43,25 @@
         class="cursor-pointer transition hover:bg-hoverDarkBG focus:outline-none focus-visible:ring-2 focus-visible:ring-secondaryText/40"
       >
 
-        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-left whitespace-nowrap {% if not loop.first %}border-t border-primaryText/10{% endif %}">
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-left whitespace-nowrap {% if not loop.first %}border-t border-divider{% endif %}">
           {{ animal.animal_number }}
         </td>
-        <td class="px-5 py-4 text-sm font-bold text-left whitespace-nowrap {% if not loop.first %}border-t border-primaryText/10{% endif %}">
+        <td class="px-5 py-4 text-sm font-bold text-left whitespace-nowrap {% if not loop.first %}border-t border-divider{% endif %}">
           {{ animal.rfid_tag }}
         </td>
-        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-left whitespace-nowrap {% if not loop.first %}border-t border-primaryText/10{% endif %}">
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-left whitespace-nowrap {% if not loop.first %}border-t border-divider{% endif %}">
           {{ animal.feed_amount }}
         </td>
-        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-center whitespace-nowrap {% if not loop.first %}border-t border-primaryText/10{% endif %}">
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-center whitespace-nowrap {% if not loop.first %}border-t border-divider{% endif %}">
           {{ animal.max_feedings_per_day}}
         </td>
-        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-center {% if not loop.first %}border-t border-primaryText/10{% endif %}">
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-center {% if not loop.first %}border-t border-divider{% endif %}">
           {{ animal.feedings_today }}
         </td>
-        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-center whitespace-nowrap {% if not loop.first %}border-t border-primaryText/10{% endif %}">
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-center whitespace-nowrap {% if not loop.first %}border-t border-divider{% endif %}">
           {{ '%02d:%02d' | format(animal.min_minutes_between_feedings // 60, animal.min_minutes_between_feedings % 60) }}
         </td>
-        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-left whitespace-nowrap {% if not loop.first %}border-t border-primaryText/10{% endif %}">
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText text-left whitespace-nowrap {% if not loop.first %}border-t border-divider{% endif %}">
           {{ animal.feeding_interval_start.strftime('%H:%M') + " - " + animal.feeding_interval_end.strftime('%H:%M') }}
         </td>
 
@@ -76,7 +76,7 @@
 
 <!-- Add animal dialog -->
 <div id="animalPopUp" class="fixed inset-0 z-50 hidden">
-  <div data-backdrop class="absolute inset-0 bg-primaryText/40"></div>
+  <div data-backdrop class="absolute inset-0 bg-backdrop"></div>
   <div class="absolute inset-0 flex items-center justify-center p-4">
     <div
       data-panel

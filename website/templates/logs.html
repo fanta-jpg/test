@@ -41,13 +41,13 @@
       {% else %}
       <tr data-log-id="{{ log.id }}">
       {% endif %}
-        <td class="px-5 py-4 text-sm font-bold text-secondaryText whitespace-nowrap border-t border-primaryText/10">
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText whitespace-nowrap border-t border-divider">
           {{ log.timestamp.strftime('%Y/%m/%d %H:%M:%S') }}
         </td>
-        <td class="px-5 py-4 text-sm font-bold text-{{ tone }} border-t border-primaryText/10">
+        <td class="px-5 py-4 text-sm font-bold text-{{ tone }} border-t border-divider">
             {{ event_label.get(log.event_type, log.event_type) }}
         </td>
-        <td class="px-5 py-4 text-sm font-bold text-secondaryText border-t border-primaryText/10">
+        <td class="px-5 py-4 text-sm font-bold text-secondaryText border-t border-divider">
           {{ log.message or '-' }}
         </td>
       </tr>

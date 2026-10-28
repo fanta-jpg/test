@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_language_switch.html" import language_switch with context %}
+{% from "_logo.html" import logo %}
 
 {% block title %}{{ _('Sign in') }}{% endblock %}
 
@@ -12,7 +13,7 @@
     <div class="rounded-xl bg-hoverLightBG border border-buttonBorder px-6 py-6 shadow-2xl">
 
       <div class="mb-6 flex items-center justify-center gap-2">
-        <img src="{{ url_for('static', filename='wheat.svg') }}" alt="" class="h-8 w-8">
+        {{ logo('h-8 w-8') }}
         <span class="text-lg font-bold tracking-tight text-primaryText">FARMGAARD</span>
       </div>
       
